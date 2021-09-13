@@ -1,5 +1,17 @@
 # instagram-followers-bot
 
+---
+# Our Edits:
+
+### Added Functionality:
+
+* [ ] Have this script run autonomously. So we execute it, and then the program knows when to kickoff the scraping function
+* [ ] Add in a cron/section that'll check when to remove/unfollow certain followers
+    - We should unfollow the users that don't follow us back. This way, our profile seems more even.
+    - This'll require us to read from a database or a store. I'm thinking mongo.
+
+---
+
 Functionality: 
 
 - **Info**: Show report
