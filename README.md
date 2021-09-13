@@ -1,18 +1,22 @@
 # instagram-followers-bot
 
 ---
+
 # Our Edits:
 
 ### Added Functionality:
 
-* [ ] Have this script run autonomously. So we execute it, and then the program knows when to kickoff the scraping function
+* [ ] Have this script run autonomously. So we execute it, and then the program knows when to kickoff the scraping
+  function
 * [ ] Add in a cron/section that'll check when to remove/unfollow certain followers
     - We should unfollow the users that don't follow us back. This way, our profile seems more even.
     - This'll require us to read from a database or a store. I'm thinking mongo.
+        - By doing it mongo, we can probably add in additional metadata behind the users we are following. For example,
+          we can capture the hashtag for the run, date when we followed them, etc. There is the chance that this is useless...
 
 ---
 
-Functionality: 
+Functionality:
 
 - **Info**: Show report
 
@@ -22,9 +26,10 @@ Functionality:
 
 ---------------------
 
-## Usage: 
+## Usage:
 
 **Show report (who follows, unfollows, follows you back):**
+
 ```
 python main.py -u USERNAME -p PASSWORD -o info
 ```
@@ -42,6 +47,7 @@ python main.py -u USERNAME -p PASSWORD -o follow-location -t LOCATION_ID
 ```
 
 **Follow back all the users who you don't follow back:**
+
 ```
 python main.py -u USERNAME -p PASSWORD -o super-followback
 ```
@@ -53,39 +59,42 @@ python main.py -u USERNAME -p PASSWORD -o follow-list -t USER_LIST
 ```
 
 **Unfollow all the users who don't follow you back:**
+
 ```
 python main.py -u USERNAME -p PASSWORD -o super-unfollow
 ```
+
 **NOTE**: Fill "whitelist.txt" file with the accounts you will never want to unfollow
 
-
 **Unfollow all the users:**
+
 ```
 python main.py -u USERNAME -p PASSWORD -o unfollow-all
 ```
+
 **NOTE**: Fill "whitelist.txt" file with the accounts you will never want to unfollow
 
 ---------------------
 
 ## Examples:
 
-*python main.py -u USERNAME -p PASSWORD -o follow-tag -t cat* : **Follow users using the tag 'cat'** 
+*python main.py -u USERNAME -p PASSWORD -o follow-tag -t cat* : **Follow users using the tag 'cat'**
 
-*python main.py -u USERNAME -p PASSWORD -o follow-location -t 127963847* : **Follow users from Spain** 
+*python main.py -u USERNAME -p PASSWORD -o follow-location -t 127963847* : **Follow users from Spain**
 
-*python main.py -u USERNAME -p PASSWORD -o super-followback*: **Now you are following users you didn't follow but they followed you**
+*python main.py -u USERNAME -p PASSWORD -o super-followback*: **Now you are following users you didn't follow but they
+followed you**
 
-*python main.py -u USERNAME -p PASSWORD -o follow-list -t userlist.txt* : **Follow users in each line of userlist.txt** 
+*python main.py -u USERNAME -p PASSWORD -o follow-list -t userlist.txt* : **Follow users in each line of userlist.txt**
 
 *python main.py -u USERNAME -p PASSWORD -o super-unfollow*: **Now you are not following users who don't follow you**
 
 
 ---------------------
 
-
 ## Acknowledgment
 
-The really good repo is the levpasha's one (https://github.com/LevPasha/Instagram-API-python) 
+The really good repo is the levpasha's one (https://github.com/LevPasha/Instagram-API-python)
 
 ---------------------
 

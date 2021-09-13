@@ -1,10 +1,27 @@
+import os
+import subprocess
+from datetime import datetime
+
+import pync
+
 import aux_funcs, sys, json, time, random
 from LevPasha.InstagramAPI import InstagramAPI
+from dotenv import load_dotenv
+
+load_dotenv()
 
 followers = []
 followings = []
-args = aux_funcs.get_args()
-api  = InstagramAPI(args.user, args.password)
+# args = aux_funcs.get_args()
+# api  = InstagramAPI(args.user, args.password)
+
+ig_user = os.getenv("IG_USER")
+ig_password = os.getenv("IG_PASSWORD")
+
+if not ig_user or not ig_password:
+	raise Exception("Missing IG password / IG user")
+
+api  = InstagramAPI(ig_user, ig_password)
 
 ### Delay in seconds ###
 min_delay = 5
@@ -136,8 +153,31 @@ def unfollowall():
 			api.unfollow(user_id)
 
 
-def main():
-	option = args.option
+
+#### Code below is used to show a mac os notification:
+# https://stackoverflow.com/questions/17651017/python-post-osx-notification
+CMD = '''
+on run argv
+  display notification (item 2 of argv) with title (item 1 of argv)
+end run
+'''
+
+def notify(title, text):
+  subprocess.call(['osascript', '-e', CMD, title, text])
+
+#### End
+
+
+def main(
+	total_minutes_to_add = 12,
+	time_limit = 30,
+	target_tag = "pourover",
+):
+	"""
+	total_minutes_to_add: The amount of minutes to add after when the script
+		is designated to run.
+
+	"""
 	api.login()
 
 	for i in api.getTotalSelfFollowers():
@@ -146,42 +186,63 @@ def main():
 	for i in api.getTotalSelfFollowings():
 		followings.append(i.get("username") )
 
-	if(option == "info"):
-		info()
+	print(f"Starting to follow for target: {target_tag}")
 
-	elif(option == "follow-tag"):
-		target = args.target
-		if target is not None:
-			follow_tag(target)
-		else:
-			printUsage()
+	while True:
+		# How this is going to work is that every 2 hours, we are going to run
+		# a script to help
+		now = datetime.now()
+		if now.hour % 2 == 0 and now.minute == 5 and now.seconds == 30:
+			if total_minutes_to_add > time_limit:
+				total_minutes_to_add = total_minutes_to_add - time_limit
 
-	elif(option == "follow-location"):
-		target = args.target
-		if target is not None:
-			follow_location(target)
-		else:
-			printUsage()
+				# Sleep for XX minutes to cause randomness
+				time.sleep(total_minutes_to_add * 60)
 
-	elif(option == "follow-list"):
-		target = args.target
-		if target is not None:
-			follow_list(target)
-		else:
-			printUsage()
+				print(f"Starting scrape at: {datetime.now()}")
 
-	elif(option == "super-followback"):
-		super_followback()
+				notify("IG script", "Starting follow")
 
-	elif(option == "super-unfollow"):
-		super_unfollow()
+				# Then we run
+				follow_tag(target_tag)
 
-	elif (option == "unfollow-all"):
-		unfollowall()
 
-	else:
-		printUsage()
+	# if(option == "info"):
+	# 	info()
+	#
+	# elif(option == "follow-tag"):
+	# 	target = args.target
+	# 	if target is not None:
+	# 		follow_tag(target)
+	# 	else:
+	# 		printUsage()
+	#
+	# elif(option == "follow-location"):
+	# 	target = args.target
+	# 	if target is not None:
+	# 		follow_location(target)
+	# 	else:
+	# 		printUsage()
+	#
+	# elif(option == "follow-list"):
+	# 	target = args.target
+	# 	if target is not None:
+	# 		follow_list(target)
+	# 	else:
+	# 		printUsage()
+	#
+	# elif(option == "super-followback"):
+	# 	super_followback()
+	#
+	# elif(option == "super-unfollow"):
+	# 	super_unfollow()
+	#
+	# elif (option == "unfollow-all"):
+	# 	unfollowall()
+	#
+	# else:
+	# 	printUsage()
 
 
 if __name__ == "__main__":
-    main()
+    main(target_tag=os.getenv("TARGET_TAG", ""))
