@@ -192,7 +192,7 @@ def main(
 		# How this is going to work is that every 2 hours, we are going to run
 		# a script to help
 		now = datetime.now()
-		if now.hour % 2 == 0 and now.minute == 5 and now.seconds == 30:
+		if now.hour % 2 == 0 and now.minute == 5:
 			if total_minutes_to_add > time_limit:
 				total_minutes_to_add = total_minutes_to_add - time_limit
 
