@@ -1,8 +1,10 @@
 import os
 import subprocess
+from dataclasses import asdict
 from datetime import datetime
 
 import pync
+from pymongo import MongoClient
 
 import aux_funcs, sys, json, time, random
 from LevPasha.InstagramAPI import InstagramAPI
@@ -17,16 +19,21 @@ followings = []
 
 ig_user = os.getenv("IG_USER")
 ig_password = os.getenv("IG_PASSWORD")
+ig_tag = os.getenv("TARGET_TAG")
 
 if not ig_user or not ig_password:
 	raise Exception("Missing IG password / IG user")
 
-api  = InstagramAPI(ig_user, ig_password)
+api = InstagramAPI(ig_user, ig_password)
 
 ### Delay in seconds ###
 min_delay = 5
 max_delay = 10
 MAXIMO = 100
+
+client = MongoClient('localhost', 27017)
+db = client['thoughtfulcoffeenyc-local']
+db_collection = db['users']
 
 
 def printUsage():
@@ -178,73 +185,54 @@ def main(
 		is designated to run.
 
 	"""
+
+    # Don't use the helper function.
 	api.login()
 
+	assert api.rank_token
+
 	for i in api.getTotalSelfFollowers():
-		followers.append(i.get("username") )
+		# looks like we work off of the username?
+		followers.append(i.get("username"))
 
 	for i in api.getTotalSelfFollowings():
-		followings.append(i.get("username") )
+		user = aux_funcs.IGUser.create(
+			ig_user_name=i['username'],
+			ig_full_name=i['full_name'],
+			ig_user_pk=i['pk'],
+			tag_used=ig_tag,
+			for_account=ig_user,
+		)
+		if db_collection.find_one({"ig_user_pk": user.ig_user_pk}):
+			print(f"Found existing user: {user.ig_user_pk} // {user.ig_user_name}")
+			continue
+		else:
+			print(f"Inserting user: {user}")
+
+		db_collection.insert_one(asdict(user))
+		followings.append(i.get("username"))
 
 	print(f"Starting to follow for target: {target_tag}")
-
 	follow_tag(target_tag)
-
-	while True:
-		# How this is going to work is that every 2 hours, we are going to run
-		# a script to help
-
-		now = datetime.now()
-		if now.hour % 2 == 0 and now.minute == 5:
-			if total_minutes_to_add > time_limit:
-				total_minutes_to_add = total_minutes_to_add - time_limit
-
-				# Sleep for XX minutes to cause randomness
-				time.sleep(total_minutes_to_add * 60)
-
-				print(f"Starting scrape at: {datetime.now()}")
-
-				notify("IG script", "Starting follow")
-
-				# Then we run
-				follow_tag(target_tag)
-
-
-	# if(option == "info"):
-	# 	info()
+#
+# while True:
+# 	# How this is going to work is that every 2 hours, we are going to run
+	# 	# a script to help
 	#
-	# elif(option == "follow-tag"):
-	# 	target = args.target
-	# 	if target is not None:
-	# 		follow_tag(target)
-	# 	else:
-	# 		printUsage()
+	# 	now = datetime.now()
+	# 	if now.hour % 2 == 0 and now.minute == 5:
+	# 		if total_minutes_to_add > time_limit:
+	# 			total_minutes_to_add = total_minutes_to_add - time_limit
 	#
-	# elif(option == "follow-location"):
-	# 	target = args.target
-	# 	if target is not None:
-	# 		follow_location(target)
-	# 	else:
-	# 		printUsage()
+	# 			# Sleep for XX minutes to cause randomness
+	# 			time.sleep(total_minutes_to_add * 60)
 	#
-	# elif(option == "follow-list"):
-	# 	target = args.target
-	# 	if target is not None:
-	# 		follow_list(target)
-	# 	else:
-	# 		printUsage()
+	# 			print(f"Starting scrape at: {datetime.now()}")
 	#
-	# elif(option == "super-followback"):
-	# 	super_followback()
+	# 			notify("IG script", "Starting follow")
 	#
-	# elif(option == "super-unfollow"):
-	# 	super_unfollow()
-	#
-	# elif (option == "unfollow-all"):
-	# 	unfollowall()
-	#
-	# else:
-	# 	printUsage()
+	# 			# Then we run
+	# 			follow_tag(target_tag)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,12 @@
 import sys, json, requests, os
 import argparse
 import random
+import os
+from dataclasses import dataclass
+from datetime import datetime
+
+from LevPasha.InstagramAPI import InstagramAPI
+
 
 def get_args():
 	parser = argparse.ArgumentParser()
@@ -25,3 +31,93 @@ def get_id(username):
 	except:
 		print("\nNote: There was an error unfollowing %s, please try again later."%(username))
 		return "0"
+
+
+@dataclass
+class IGApiReturn:
+	api: InstagramAPI
+	ig_user: str
+	ig_password: str
+	ig_tag: str
+
+
+def get_ig_api() -> IGApiReturn:
+    """
+    A util function to help us setup the InstagramAPI
+    """
+    ig_user = os.getenv("IG_USER")
+    ig_password = os.getenv("IG_PASSWORD")
+
+    if not ig_user or not ig_password:
+        raise Exception("Missing IG password / IG user")
+
+    api = InstagramAPI(ig_user, ig_password)
+    return IGApiReturn(
+		api=api,
+		ig_user=ig_user,
+		ig_password=ig_password,
+		ig_tag=os.getenv("TARGET_TAG")
+	)
+
+
+class ForAccount:
+	coffee = 'thoughtfulcoffeenyc'
+	candle = 'thoughtfulcandlesnyc'
+
+class IGUserStatus:
+	"""
+    blacklist: an account that we don't want to follow
+    whitelist: an account that we don't want to unfollow
+
+    """
+	blacklist = 'blacklist'
+	whitelist = 'whitelist'
+	follower = 'follower'
+	unfollowed = 'unfollowed'
+
+
+
+@dataclass
+class IGUser:
+	# only data we need from IG
+	ig_user_name: str
+	ig_full_name: str
+	ig_user_pk: str
+
+	# our own metadata
+	tag_used: str
+	for_account: ForAccount  # check if this actually validates
+	created: datetime
+	status: IGUserStatus
+
+	@classmethod
+	def create(cls, ig_user_name: str, ig_full_name: str, ig_user_pk: str, tag_used: str, for_account: str):
+		return cls(
+			ig_user_name=ig_user_name,
+			ig_full_name=ig_full_name,
+			ig_user_pk=ig_user_pk,
+			tag_used=tag_used,
+			for_account=for_account,
+			created=datetime.today(),
+			status=IGUserStatus.follower,
+		)
+
+# acounts that we purposefully want to follow
+# and those we don't care if they don't follow us
+# these typically will be large accounts
+WHITE_LIST_ACCOUNTS = [
+	"brewtalco",
+	"jaojoy.__",  # account
+	"dailycoffee.us",
+	"devocionusa",
+	"partnerscoffee",
+	"seycoffee",
+	"blankstreetcoffee",
+	"dripcoffeenyc",
+	"arabica.journal",
+	"arabica.kyoto",
+	"varietycoffee",
+	"hungryghostcoffee",
+	"olsocoffee",
+	"lionsmilkbrooklyn",
+]
