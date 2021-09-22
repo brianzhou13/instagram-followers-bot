@@ -20,6 +20,8 @@ followings = []
 ig_user = os.getenv("IG_USER")
 ig_password = os.getenv("IG_PASSWORD")
 ig_tag = os.getenv("TARGET_TAG")
+mongo_uri = os.getenv("MONGO_URI", "")
+
 
 if not ig_user or not ig_password:
 	raise Exception("Missing IG password / IG user")
@@ -31,8 +33,10 @@ min_delay = 5
 max_delay = 10
 MAXIMO = 100
 
-client = MongoClient('localhost', 27017)
-db = client['thoughtfulcoffeenyc-local']
+print(f"connecting to: {mongo_uri}")
+
+client = MongoClient(mongo_uri)
+db = client['thoughtfulcoffeenyc']
 db_collection = db['users']
 
 
@@ -160,6 +164,38 @@ def unfollowall():
 			api.unfollow(user_id)
 
 
+def build_followers_followings():
+	"""
+	This is a weird function where we build the global lists [followers/followings].
+
+	Then as a side-effect, we also record any users we don't have tracked within
+	our database
+	"""
+	for i in api.getTotalSelfFollowers():
+		# looks like we work off of the username?
+		followers.append(i.get("username"))
+
+	for i in api.getTotalSelfFollowings():
+		user = aux_funcs.IGUser.create(
+			ig_user_name=i['username'],
+			ig_full_name=i['full_name'],
+			ig_user_pk=i['pk'],
+			tag_used=ig_tag,
+			for_account=ig_user,
+		)
+
+		filter_dict = {
+			"ig_user_pk": user.ig_user_pk,
+			"for_account": ig_user,
+		}
+
+		user_doc = db_collection.find_one(filter_dict)
+
+		if not user_doc:
+			db_collection.insert_one(asdict(user))
+
+		followings.append(i.get("username"))
+
 
 #### Code below is used to show a mac os notification:
 # https://stackoverflow.com/questions/17651017/python-post-osx-notification
@@ -191,49 +227,42 @@ def main(
 
 	assert api.rank_token
 
-	for i in api.getTotalSelfFollowers():
-		# looks like we work off of the username?
-		followers.append(i.get("username"))
-
-	for i in api.getTotalSelfFollowings():
-		user = aux_funcs.IGUser.create(
-			ig_user_name=i['username'],
-			ig_full_name=i['full_name'],
-			ig_user_pk=i['pk'],
-			tag_used=ig_tag,
-			for_account=ig_user,
-		)
-		if db_collection.find_one({"ig_user_pk": user.ig_user_pk}):
-			print(f"Found existing user: {user.ig_user_pk} // {user.ig_user_name}")
-			continue
-		else:
-			print(f"Inserting user: {user}")
-
-		db_collection.insert_one(asdict(user))
-		followings.append(i.get("username"))
+	build_followers_followings()
 
 	print(f"Starting to follow for target: {target_tag}")
 	follow_tag(target_tag)
-#
-# while True:
-# 	# How this is going to work is that every 2 hours, we are going to run
-	# 	# a script to help
-	#
-	# 	now = datetime.now()
-	# 	if now.hour % 2 == 0 and now.minute == 5:
-	# 		if total_minutes_to_add > time_limit:
-	# 			total_minutes_to_add = total_minutes_to_add - time_limit
-	#
-	# 			# Sleep for XX minutes to cause randomness
-	# 			time.sleep(total_minutes_to_add * 60)
-	#
-	# 			print(f"Starting scrape at: {datetime.now()}")
-	#
-	# 			notify("IG script", "Starting follow")
-	#
-	# 			# Then we run
-	# 			follow_tag(target_tag)
+
+	while True:
+		now = datetime.now()
+		if now.hour % 2 == 0 and now.minute == 5:
+			if total_minutes_to_add > time_limit:
+				total_minutes_to_add = total_minutes_to_add - time_limit
+
+				# Sleep for XX minutes to cause randomness
+				time.sleep(total_minutes_to_add * 60)
+
+				print(f"Starting scrape at: {datetime.now()}")
+
+				notify("IG script", "Starting follow")
+
+				# Then we run
+				follow_tag(target_tag)
+
+		elif now.hour % 4 and now.minute == 2:
+			# This could be when we run our "unfollow" script
+			# Go through all account instances where the status is: "follower"
+			# Then check if the delta between when we've followed v when they've followed is more than a week
+			# if it is, then we run the "unfollow" action.
+			# -- though we'll likely need to push this into a queue or something so we don't do 10000 unfollows in a minute.
+			# I'm thinking... we'll mutate a global list
+			# then every hour, we'll do an unfollowing and pick some off that queue.
+			...
 
 
 if __name__ == "__main__":
     main(target_tag=os.getenv("TARGET_TAG", ""))
+
+	# Run below for a info report
+	# api.login()
+	# build_followers_followings()
+	# info()

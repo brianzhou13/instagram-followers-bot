@@ -5,6 +5,8 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 
+from pymongo import MongoClient
+
 from LevPasha.InstagramAPI import InstagramAPI
 
 
@@ -70,10 +72,9 @@ class IGUserStatus:
     whitelist: an account that we don't want to unfollow
 
     """
-	blacklist = 'blacklist'
+	blacklist = 'blacklist'  # same as "unfollowed", just means they haven't followed us back within X period of time
 	whitelist = 'whitelist'
 	follower = 'follower'
-	unfollowed = 'unfollowed'
 
 
 
@@ -87,6 +88,7 @@ class IGUser:
 	# our own metadata
 	tag_used: str
 	for_account: ForAccount  # check if this actually validates
+
 	created: datetime
 	status: IGUserStatus
 
@@ -120,4 +122,13 @@ WHITE_LIST_ACCOUNTS = [
 	"hungryghostcoffee",
 	"olsocoffee",
 	"lionsmilkbrooklyn",
+	"sprudge",
+	"bluebottle",
+	"tradecoffeeco",
+	"kohanacoffee",
+	"roasterdaily",
+	"ucdavisengineering",
+	"fellowproducts",
+	"dyldude",
+	"cold.brew.dude",
 ]
