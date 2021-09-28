@@ -2,13 +2,15 @@ import os
 import subprocess
 from dataclasses import asdict
 from datetime import datetime
+import platform
 
-import pync
 from pymongo import MongoClient
 
-import aux_funcs, sys, json, time, random
+import aux_funcs, time, random
 from LevPasha.InstagramAPI import InstagramAPI
 from dotenv import load_dotenv
+
+system = platform.system().lower()
 
 load_dotenv()
 
@@ -243,7 +245,8 @@ def main(
 
 				print(f"Starting scrape at: {datetime.now()}")
 
-				notify("IG script", "Starting follow")
+				if system == "darwin":
+					notify("IG script", "Starting follow")
 
 				# Then we run
 				follow_tag(target_tag)
