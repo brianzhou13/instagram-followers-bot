@@ -225,6 +225,7 @@ def main(
 	"""
 
     # Don't use the helper function.
+	print("About to login")
 	api.login()
 
 	assert api.rank_token
