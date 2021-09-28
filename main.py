@@ -231,11 +231,13 @@ def main(
 
 	assert api.rank_token
 
+	print("Building followers followings")
 	build_followers_followings()
 
 	print(f"Starting to follow for target: {target_tag}")
 	follow_tag(target_tag)
 
+	print("kicking off while-loop")
 	while True:
 		now = datetime.now()
 		if now.hour % 2 == 0 and now.minute == 5:
