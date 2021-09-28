@@ -30,8 +30,9 @@ def get_id(username):
 		for i in respJSON["users"]:
 			if (i["user"]["username"] == username):
 				return str(i["user"]["pk"])
-	except:
+	except Exception as err:
 		print("\nNote: There was an error unfollowing %s, please try again later."%(username))
+		raise Exception(f"Failed following iwth err: {err}")
 		return "0"
 
 
@@ -72,8 +73,9 @@ class IGUserStatus:
     whitelist: an account that we don't want to unfollow
 
     """
-	blacklist = 'blacklist'  # same as "unfollowed", just means they haven't followed us back within X period of time
+	blacklist = 'blacklist'  # There is an explicit reason for unfollowing -- ie spam/harrassment/etc.
 	whitelist = 'whitelist'
+	unfollowed = 'unfollowed'  # This is when they never followed back
 	follower = 'follower'
 
 

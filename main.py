@@ -4,6 +4,7 @@ from dataclasses import asdict
 from datetime import datetime
 import platform
 
+from dateutil.relativedelta import relativedelta
 from pymongo import MongoClient
 
 import aux_funcs, time, random
@@ -173,15 +174,25 @@ def build_followers_followings():
 	Then as a side-effect, we also record any users we don't have tracked within
 	our database
 	"""
+	print("Starting to get people who follow US")
 	for i in api.getTotalSelfFollowers():
 		# looks like we work off of the username?
-		followers.append(i.get("username"))
+		if i not in followers:
+			# looks like there might be dupes in `followers`, so only append
+			# if they aren't present
+			followers.append(i.get("username"))
 
-	for i in api.getTotalSelfFollowings():
+	print("Finished getting followers")
+
+	print("Starting to get who we follow")
+	for i, val in enumerate(api.getTotalSelfFollowings()):
+		if i % 100 == 0:
+			print(f"Finished getting: {i} followers")
+
 		user = aux_funcs.IGUser.create(
-			ig_user_name=i['username'],
-			ig_full_name=i['full_name'],
-			ig_user_pk=i['pk'],
+			ig_user_name=val['username'],
+			ig_full_name=val['full_name'],
+			ig_user_pk=val['pk'],
 			tag_used=ig_tag,
 			for_account=ig_user,
 		)
@@ -195,8 +206,13 @@ def build_followers_followings():
 
 		if not user_doc:
 			db_collection.insert_one(asdict(user))
+		elif user_doc and user.status == aux_funcs.IGUserStatus.unfollowed:
+			print(f"Updating user: {user.ig_user_name} back to follower status")
+			# this helps catch any bad data
+			db_collection.update(asdict(user), {"status": aux_funcs.IGUserStatus.follower})
 
-		followings.append(i.get("username"))
+		followings.append(val.get("username"))
+	print("Finished getting who we follow")
 
 
 #### Code below is used to show a mac os notification:
@@ -235,35 +251,83 @@ def main(
 	build_followers_followings()
 
 	print(f"Starting to follow for target: {target_tag}")
-	follow_tag(target_tag)
+	# follow_tag(target_tag)
 
 	print("kicking off while-loop")
+	block_unfollow = False
+
 	while True:
 		now = datetime.now()
-		if now.hour % 2 == 0 and now.minute == 5:
-			if total_minutes_to_add > time_limit:
-				total_minutes_to_add = total_minutes_to_add - time_limit
+		if now.hour % 2 == 0 and now.minute == 33:
+			time.sleep(float(random.uniform(min_delay * 10, max_delay * 10) / 10))
 
-				# Sleep for XX minutes to cause randomness
-				time.sleep(total_minutes_to_add * 60)
+			print(f"Starting scrape at: {datetime.now()}")
 
-				print(f"Starting scrape at: {datetime.now()}")
+			if system == "darwin":
+				notify("IG script", "Starting follow")
 
-				if system == "darwin":
-					notify("IG script", "Starting follow")
+			# Then we run
+			follow_tag(target_tag)
 
-				# Then we run
-				follow_tag(target_tag)
+			# after a successful run here, we can reset to False to allow
+			# ourselves to run the unfollow code again
+			block_unfollow = False
 
-		elif now.hour % 4 and now.minute == 2:
-			# This could be when we run our "unfollow" script
-			# Go through all account instances where the status is: "follower"
-			# Then check if the delta between when we've followed v when they've followed is more than a week
-			# if it is, then we run the "unfollow" action.
-			# -- though we'll likely need to push this into a queue or something so we don't do 10000 unfollows in a minute.
-			# I'm thinking... we'll mutate a global list
-			# then every hour, we'll do an unfollowing and pick some off that queue.
-			...
+		elif now.minute == 5 and block_unfollow is False:
+			# Unfollow 50 at a time
+			# Find instances that have been 5 days before today, and we
+			# are only just following
+			if system == "darwin":
+				notify("IG script", "Starting unfollow")
+
+			data = db_collection.find({
+				"created": {"$lte": datetime.today() - relativedelta(days=5)},
+				"for_account": ig_user,
+				"status": aux_funcs.IGUserStatus.follower,
+			}).limit(25)
+
+			for d in data:
+				# need to figure out how to determine that they aren't following us
+				# maybe before we run, we do a check that they are following us
+				#     if d.ig_user_name not in following:
+				# this means that they aren't following us
+				# so we should likely unfollow them
+				if d['ig_user_name'] not in followers:
+					if block_unfollow is True:
+						# keep skipping -- this only gets set as True when
+						# we hit an exception
+						continue
+
+					print(f"Setting {d['ig_user_name']} // {d['_id']} to unfollowed")
+
+					# unfollow user -- copied from super_unfollow
+					try:
+						user_id = aux_funcs.get_id(d['ig_user_name'])
+						resp = api.unfollow(user_id)
+						if resp is False:
+							block_unfollow = True
+							continue
+					except Exception:
+						block_unfollow = True
+						continue
+
+					# copied over from superunfollow
+					time.sleep(float(random.uniform(min_delay * 10, max_delay * 10) / 10))
+
+					if resp is True:
+						# after unfollowing, update
+						db_collection.update(
+							{
+								"_id": d["_id"],
+								"for_account": "thoughtfulcoffeenyc",
+								"ig_user_name": d['ig_user_name'],
+							},
+							{
+								"status": aux_funcs.IGUserStatus.unfollowed,
+							}
+						)
+					else:
+						raise Exception("Error with unfollow")
 
 
 if __name__ == "__main__":
