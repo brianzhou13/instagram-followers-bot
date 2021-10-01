@@ -274,7 +274,7 @@ def main(
 			block_unfollow = False
 
 		elif now.minute == 5 and block_unfollow is False:
-			# Unfollow 50 at a time
+			# Unfollow 5 at a time
 			# Find instances that have been 5 days before today, and we
 			# are only just following
 			if system == "darwin":
@@ -284,7 +284,7 @@ def main(
 				"created": {"$lte": datetime.today() - relativedelta(days=5)},
 				"for_account": ig_user,
 				"status": aux_funcs.IGUserStatus.follower,
-			}).limit(25)
+			}).limit(5)
 
 			for d in data:
 				# need to figure out how to determine that they aren't following us
