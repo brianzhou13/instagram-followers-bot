@@ -6,6 +6,7 @@ import platform
 
 from dateutil.relativedelta import relativedelta
 from pymongo import MongoClient
+from slack_sdk import WebClient
 
 import aux_funcs, time, random
 from LevPasha.InstagramAPI import InstagramAPI
@@ -41,6 +42,15 @@ print(f"connecting to: {mongo_uri}")
 client = MongoClient(mongo_uri)
 db = client['thoughtfulcoffeenyc']
 db_collection = db['users']
+
+slack_client = WebClient(token=os.getenv("SLACK_BOT_TOKEN"))
+print("setup slack client")
+
+
+def send_slack_msg(msg):
+	print("sending slack msg")
+	slack_client.chat_postMessage(channel='broker', text=msg)
+	print("send slack msg")
 
 
 def printUsage():
@@ -251,7 +261,6 @@ def main(
 	build_followers_followings()
 
 	print(f"Starting to follow for target: {target_tag}")
-	# follow_tag(target_tag)
 
 	print("kicking off while-loop")
 	block_unfollow = False
@@ -265,9 +274,13 @@ def main(
 
 			if system == "darwin":
 				notify("IG script", "Starting follow")
+			else:
+				send_slack_msg(f"Starting following accounts for {ig_user} // {target_tag}")
 
 			# Then we run
 			follow_tag(target_tag)
+
+			send_slack_msg("Done following accounts!")
 
 			# after a successful run here, we can reset to False to allow
 			# ourselves to run the unfollow code again
@@ -279,12 +292,16 @@ def main(
 			# are only just following
 			if system == "darwin":
 				notify("IG script", "Starting unfollow")
+			else:
+				send_slack_msg("Starting to unfollow accounts!")
 
 			data = db_collection.find({
 				"created": {"$lte": datetime.today() - relativedelta(days=5)},
 				"for_account": ig_user,
 				"status": aux_funcs.IGUserStatus.follower,
 			}).limit(5)
+
+			num_accounts_unfollowed = 0
 
 			for d in data:
 				# need to figure out how to determine that they aren't following us
@@ -305,10 +322,13 @@ def main(
 						user_id = aux_funcs.get_id(d['ig_user_name'])
 						resp = api.unfollow(user_id)
 						if resp is False:
+							send_slack_msg(f"Done following {num_accounts_unfollowed} accounts!")
 							block_unfollow = True
 							continue
+						num_accounts_unfollowed += 1
 					except Exception:
 						block_unfollow = True
+						send_slack_msg(f"Done following {num_accounts_unfollowed} accounts!")
 						continue
 
 					# copied over from superunfollow
@@ -329,6 +349,7 @@ def main(
 					else:
 						raise Exception("Error with unfollow")
 
+				send_slack_msg(f"Done following {num_accounts_unfollowed} accounts!")
 
 if __name__ == "__main__":
     main(target_tag=os.getenv("TARGET_TAG", ""))
