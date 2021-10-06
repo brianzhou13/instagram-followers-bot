@@ -67,7 +67,8 @@ class InstagramAPI:
                     self.token = self.LastResponse.cookies["csrftoken"]
                     return True;
                 else:
-                    print("Login not successful")
+                    print("Login not successful // Check your credentials")
+                    raise Exception('InstagramAPI login not successful')
 
 
     def follow(self, userId):

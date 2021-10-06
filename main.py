@@ -218,8 +218,9 @@ def build_followers_followings():
 			db_collection.insert_one(asdict(user))
 		elif user_doc and user.status == aux_funcs.IGUserStatus.unfollowed:
 			print(f"Updating user: {user.ig_user_name} back to follower status")
-			# this helps catch any bad data
-			db_collection.update(asdict(user), {"status": aux_funcs.IGUserStatus.follower})
+			# I think this is the case where the DB record says we've unfollowed them... but in reality,
+			# we are still following them; therefore, this is logic to rectify our records.
+			db_collection.find_one_and_update(asdict(user), {"$set": {"status": aux_funcs.IGUserStatus.follower}})
 
 		followings.append(val.get("username"))
 	print("Finished getting who we follow")
@@ -267,7 +268,8 @@ def main(
 
 	while True:
 		now = datetime.now()
-		if now.hour % 2 == 0 and now.minute == 33:
+		# Apply a second check as this'll keep calling otherwise (I think)
+		if now.hour % 2 == 0 and now.minute == 33 and now.second == 45:
 			time.sleep(float(random.uniform(min_delay * 10, max_delay * 10) / 10))
 
 			print(f"Starting scrape at: {datetime.now()}")
@@ -286,7 +288,7 @@ def main(
 			# ourselves to run the unfollow code again
 			block_unfollow = False
 
-		elif now.minute == 5 and block_unfollow is False:
+		elif now.minute == 5 and block_unfollow is False and now.second == 23:
 			# Unfollow 5 at a time
 			# Find instances that have been 5 days before today, and we
 			# are only just following
@@ -336,14 +338,16 @@ def main(
 
 					if resp is True:
 						# after unfollowing, update
-						db_collection.update(
+						db_collection.find_one_and_update(
 							{
 								"_id": d["_id"],
 								"for_account": "thoughtfulcoffeenyc",
 								"ig_user_name": d['ig_user_name'],
 							},
 							{
-								"status": aux_funcs.IGUserStatus.unfollowed,
+								"$set": {
+									"status": aux_funcs.IGUserStatus.unfollowed,
+								},
 							}
 						)
 					else:
