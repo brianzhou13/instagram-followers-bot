@@ -1,13 +1,15 @@
-import sys, json, requests, os
+import requests
 import argparse
 import random
 import os
+import time
 from dataclasses import dataclass
 from datetime import datetime
 
-from pymongo import MongoClient
-
 from LevPasha.InstagramAPI import InstagramAPI
+
+MIN_DELAY = 5
+MAX_DELAY = 10
 
 
 def get_args():
@@ -105,6 +107,10 @@ class IGUser:
 			created=datetime.today(),
 			status=IGUserStatus.follower,
 		)
+
+def apply_random_time_lag(rand_multiplier = 10):
+	time.sleep(float(random.uniform(MIN_DELAY * rand_multiplier, MAX_DELAY * rand_multiplier) / rand_multiplier))
+
 
 # acounts that we purposefully want to follow
 # and those we don't care if they don't follow us

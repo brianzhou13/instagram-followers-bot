@@ -32,9 +32,6 @@ if not ig_user or not ig_password:
 
 api = InstagramAPI(ig_user, ig_password)
 
-### Delay in seconds ###
-min_delay = 5
-max_delay = 10
 MAXIMO = 100
 
 print(f"connecting to: {mongo_uri}")
@@ -48,7 +45,7 @@ print("setup slack client")
 
 
 def send_slack_msg(msg):
-	print("sending slack msg")
+	print(f"sending slack msg: {msg}")
 	slack_client.chat_postMessage(channel='broker', text=msg)
 	print("send slack msg")
 
@@ -101,7 +98,7 @@ def follow_tag(tag):
 	tot = 0
 	print("\nTAG: "+str(tag)+"\n")
 	for i in media_id["items"]:
-		time.sleep(float( random.uniform(min_delay*10,max_delay*10) / 10 ))
+		aux_funcs.apply_random_time_lag()
 		username = i.get("user")["username"]
 		user_id = i.get("user")["pk"]
 		api.follow(user_id)
@@ -117,7 +114,7 @@ def follow_location(target):
 	media_id = api.LastJson
 	tot = 0
 	for i in media_id.get("items"):
-		time.sleep(float( random.uniform(min_delay*10,max_delay*10) / 10 ))
+		aux_funcs.apply_random_time_lag()
 		username = i.get("user").get("username")
 		user_id = aux_funcs.get_id(username)
 		api.follow(user_id)
@@ -132,7 +129,7 @@ def follow_list(target):
 	user_list = open(target).read().splitlines()
 	tot = 0
 	for username in user_list:
-		time.sleep(float( random.uniform(min_delay*10,max_delay*10) / 10 ))
+		aux_funcs.apply_random_time_lag()
 		user_id = aux_funcs.get_id(username)
 		api.follow(user_id)
 		tot += 1
@@ -147,7 +144,7 @@ def super_followback():
 	for i in followers:
 		if i not in followings:
 			count+=1
-			time.sleep(float( random.uniform(min_delay*10,max_delay*10) / 10 ))
+			aux_funcs.apply_random_time_lag()
 			print(str(count)+") Following back "+i)
 			user_id = aux_funcs.get_id(i)
 			api.follow(user_id)
@@ -159,7 +156,7 @@ def super_unfollow():
 	for i in followings:
 		if (i not in followers) and (i not in whitelist):
 			count+=1
-			time.sleep(float( random.uniform(min_delay*10,max_delay*10) / 10 ))
+			aux_funcs.apply_random_time_lag()
 			print(str(count)+") Unfollowing "+i)
 			user_id = aux_funcs.get_id(i)
 			api.unfollow(user_id)
@@ -171,7 +168,7 @@ def unfollowall():
 	for i in followings:
 		if i not in whitelist:
 			count +=1
-			time.sleep(float( random.uniform(min_delay*10,max_delay*10) / 10 ))
+			aux_funcs.apply_random_time_lag()
 			print(str(count)+") Unfollowing "+i)
 			user_id = aux_funcs.get_id(i)
 			api.unfollow(user_id)
@@ -266,13 +263,25 @@ def main(
 	print("kicking off while-loop")
 	block_unfollow = False
 
+	follow_tag(target_tag)
+
 	while True:
+		# Note:
+		# Since everything runs synchronously, the first `#if` condition takes a while, and
+		# overshadows the "unfollow"; therefore, this doesn't let the while-loop consistently reach the
+		# unfollow task. Consider decoupling the two (?) Have one service purely run for logging-out, while
+		# another to login? Have both processes share a redis connection, and use that to apply a lock to
+		# not have two "following" processes running concurrently.
+
+
+		# TODO:
+		# Before following, maybe do some validation on the account we are about to follow. If it's a dummy
+		# account with no followings, an account with no posts, or an account that has a huge imbalance of follower-to-following
+		# ratio, don't follow
 		now = datetime.now()
 		# Apply a second check as this'll keep calling otherwise (I think)
 		if now.hour % 2 == 0 and now.minute == 33 and now.second == 45:
-			time.sleep(float(random.uniform(min_delay * 10, max_delay * 10) / 10))
-
-			print(f"Starting scrape at: {datetime.now()}")
+			aux_funcs.apply_random_time_lag()
 
 			if system == "darwin":
 				notify("IG script", "Starting follow")
@@ -315,26 +324,27 @@ def main(
 					if block_unfollow is True:
 						# keep skipping -- this only gets set as True when
 						# we hit an exception
+						print("SKIPPING AS block_unfollow is: True")
 						continue
 
 					print(f"Setting {d['ig_user_name']} // {d['_id']} to unfollowed")
 
 					# unfollow user -- copied from super_unfollow
+					resp = None
 					try:
 						user_id = aux_funcs.get_id(d['ig_user_name'])
+						aux_funcs.apply_random_time_lag()
 						resp = api.unfollow(user_id)
 						if resp is False:
-							send_slack_msg(f"Done following {num_accounts_unfollowed} accounts!")
-							block_unfollow = True
-							continue
+							raise Exception("Response from unfollow API is false")
 						num_accounts_unfollowed += 1
-					except Exception:
+					except Exception as err:
 						block_unfollow = True
-						send_slack_msg(f"Done following {num_accounts_unfollowed} accounts!")
+						send_slack_msg(f"Hit an exception {err} and done unfollowing {num_accounts_unfollowed} accounts!")
 						continue
 
 					# copied over from superunfollow
-					time.sleep(float(random.uniform(min_delay * 10, max_delay * 10) / 10))
+					aux_funcs.apply_random_time_lag()
 
 					if resp is True:
 						# after unfollowing, update
@@ -351,9 +361,7 @@ def main(
 							}
 						)
 					else:
-						raise Exception("Error with unfollow")
-
-				send_slack_msg(f"Done following {num_accounts_unfollowed} accounts!")
+						raise Exception("Error with persisting unfollow on the mongo-layer")
 
 if __name__ == "__main__":
     main(target_tag=os.getenv("TARGET_TAG", ""))
