@@ -93,6 +93,7 @@ def info():
 
 
 def follow_tag(tag):
+	# See if we can make it so _multiple_ tags can be used
 	api.tagFeed(tag)
 	media_id = api.LastJson
 	tot = 0
@@ -306,11 +307,13 @@ def main(
 			else:
 				send_slack_msg("Starting to unfollow accounts!")
 
-			data = db_collection.find({
+			data = list(db_collection.find({
 				"created": {"$lte": datetime.today() - relativedelta(days=5)},
 				"for_account": ig_user,
 				"status": aux_funcs.IGUserStatus.follower,
-			}).limit(5)
+			}).limit(5))
+
+			print("To unfollow: ", data)
 
 			num_accounts_unfollowed = 0
 

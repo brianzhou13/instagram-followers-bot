@@ -201,6 +201,8 @@ class InstagramAPI:
         return popularFeed
 
     def tagFeed(self, tag):
+        # TODO: see if we can filter off of _multiple hashtags_ here.
+        # I don't think this is possible unless we are granted API access.
         userFeed = self.SendRequest('feed/tag/'+ str(tag) +'/?rank_token=' + str(self.rank_token) + '&ranked_content=true&')
         return userFeed
 
